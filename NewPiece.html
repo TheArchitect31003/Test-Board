@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hyperion IX - Chess Board</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f0f0f;
+      color: white;
+    }
+    .chess-square {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .light { background-color: #b58863; }
+    .dark { background-color: #3c3c3c; }
+    .highlighted { background-color: #4a90e2 !important; }
+    .piece-img {
+      width: 48px;
+      height: 48px;
+      pointer-events: none;
+    }
+    input, button {
+      color: black;
+    }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-screen-lg mx-auto">
+    <h1 class="text-3xl font-extrabold mb-6">HYPERION IX - Interactive Chess Board</h1>
+
+    <!-- FEN Input -->
+    <div class="flex items-center mb-4 space-x-4">
+      <input id="fenInput" type="text" placeholder="Enter FEN..." class="w-full px-4 py-2 rounded bg-white text-black" />
+      <button onclick="loadFEN()" class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded text-white">Load FEN</button>
+    </div>
+
+    <!-- Chess Board -->
+    <div id="board" class="grid grid-cols-8 gap-0 border-2 border-gray-700 rounded-lg"></div>
+  </div>
+
+  <script>
+    const boardElement = document.getElementById("board");
+    let boardState = [
+      ["r", "n", "b", "q", "k", "b", "n", "r"],
+      ["p", "p", "p", "p", "p", "p", "p", "p"],
+      ["", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
+      ["P", "P", "P", "P", "P", "P", "P", "P"],
+      ["R", "N", "B", "Q", "K", "B", "N", "R"]
+    ];
+
+    const pieceMap = {
+      "K": "king", "Q": "queen", "R": "rook", "B": "bishop", "N": "knight", "P": "pawn",
+      "k": "king", "q": "queen", "r": "rook", "b": "bishop", "n": "knight", "p": "pawn"
+    };
+
+    function renderBoard() {
+      boardElement.innerHTML = "";
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const isLight = (r + c) % 2 === 0;
+          const square = document.createElement("div");
+          square.className = `chess-square ${isLight ? "light" : "dark"}`;
+
+          const piece = boardState[r][c];
+          if (piece) {
+            const img = document.createElement("img");
+            img.src = `./pieces/${pieceMap[piece]}.png`;
+            img.alt = piece;
+            img.className = "piece-img";
+            square.appendChild(img);
+          }
+
+          boardElement.appendChild(square);
+        }
+      }
+    }
+
+    function loadFEN() {
+      const fen = document.getElementById("fenInput").value.trim();
+      const [piecePlacement] = fen.split(" ");
+      const rows = piecePlacement.split("/");
+      const newState = [];
+
+      for (let r = 0; r < 8; r++) {
+        const row = rows[r];
+        const parsedRow = [];
+        for (const char of row) {
+          if (!isNaN(char)) {
+            for (let i = 0; i < parseInt(char); i++) parsedRow.push("");
+          } else {
+            parsedRow.push(char);
+          }
+        }
+        newState.push(parsedRow);
+      }
+      boardState = newState;
+      renderBoard();
+    }
+
+    renderBoard();
+  </script>
+</body>
+</html>
