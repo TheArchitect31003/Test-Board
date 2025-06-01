@@ -1,114 +1,491 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hyperion IX - Chess Board</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #0f0f0f;
-      color: white;
-    }
-    .chess-square {
-      width: 60px;
-      height: 60px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .light { background-color: #b58863; }
-    .dark { background-color: #3c3c3c; }
-    .highlighted { background-color: #4a90e2 !important; }
-    .piece-img {
-      width: 48px;
-      height: 48px;
-      pointer-events: none;
-    }
-    input, button {
-      color: black;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HYPERION IX - Chess Intelligence Platform</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: #000;
+            color: #fff;
+        }
+        * { box-sizing: border-box; }
+        .chess-piece {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            user-select: none;
+        }
+    </style>
 </head>
-<body class="p-8">
-  <div class="max-w-screen-lg mx-auto">
-    <h1 class="text-3xl font-extrabold mb-6">HYPERION IX - Interactive Chess Board</h1>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useCallback } = React;
 
-    <!-- FEN Input -->
-    <div class="flex items-center mb-4 space-x-4">
-      <input id="fenInput" type="text" placeholder="Enter FEN..." class="w-full px-4 py-2 rounded bg-white text-black" />
-      <button onclick="loadFEN()" class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded text-white">Load FEN</button>
-    </div>
+        // Chess piece Unicode symbols
+        const pieceSymbols = {
+            wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
+            bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟'
+        };
 
-    <!-- Chess Board -->
-    <div id="board" class="grid grid-cols-8 gap-0 border-2 border-gray-700 rounded-lg"></div>
-  </div>
+        // Simple chess engine
+        class SimpleChess {
+            constructor() {
+                this.board = [
+                    ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
+                    ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+                    ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR']
+                ];
+                this.turn = 'w';
+            }
 
-  <script>
-    const boardElement = document.getElementById("board");
-    let boardState = [
-      ["r", "n", "b", "q", "k", "b", "n", "r"],
-      ["p", "p", "p", "p", "p", "p", "p", "p"],
-      ["", "", "", "", "", "", "", ""],
-      ["", "", "", "", "", "", "", ""],
-      ["", "", "", "", "", "", "", ""],
-      ["", "", "", "", "", "", "", ""],
-      ["P", "P", "P", "P", "P", "P", "P", "P"],
-      ["R", "N", "B", "Q", "K", "B", "N", "R"]
-    ];
+            fen() {
+                let fen = '';
+                for (let row = 0; row < 8; row++) {
+                    let emptyCount = 0;
+                    for (let col = 0; col < 8; col++) {
+                        const piece = this.board[row][col];
+                        if (piece) {
+                            if (emptyCount > 0) {
+                                fen += emptyCount;
+                                emptyCount = 0;
+                            }
+                            fen += piece[0] === 'w' ? piece[1].toUpperCase() : piece[1].toLowerCase();
+                        } else {
+                            emptyCount++;
+                        }
+                    }
+                    if (emptyCount > 0) fen += emptyCount;
+                    if (row < 7) fen += '/';
+                }
+                fen += ` ${this.turn} - - 0 1`;
+                return fen;
+            }
 
-    const pieceMap = {
-      "K": "king", "Q": "queen", "R": "rook", "B": "bishop", "N": "knight", "P": "pawn",
-      "k": "king", "q": "queen", "r": "rook", "b": "bishop", "n": "knight", "p": "pawn"
-    };
+            load(fen) {
+                try {
+                    const parts = fen.split(' ');
+                    const boardPart = parts[0];
+                    const rows = boardPart.split('/');
+                    
+                    if (rows.length !== 8) return false;
+                    
+                    const newBoard = [];
+                    for (let i = 0; i < 8; i++) {
+                        const row = [];
+                        const rowStr = rows[i];
+                        for (let j = 0; j < rowStr.length; j++) {
+                            const char = rowStr[j];
+                            if (char >= '1' && char <= '8') {
+                                const emptySquares = parseInt(char);
+                                for (let k = 0; k < emptySquares; k++) {
+                                    row.push(null);
+                                }
+                            } else {
+                                const color = char === char.toUpperCase() ? 'w' : 'b';
+                                const piece = color + char.toUpperCase();
+                                row.push(piece);
+                            }
+                        }
+                        if (row.length !== 8) return false;
+                        newBoard.push(row);
+                    }
+                    
+                    this.board = newBoard;
+                    this.turn = parts[1] || 'w';
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
 
-    function renderBoard() {
-      boardElement.innerHTML = "";
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          const isLight = (r + c) % 2 === 0;
-          const square = document.createElement("div");
-          square.className = `chess-square ${isLight ? "light" : "dark"}`;
+            move({ from, to, promotion = 'Q' }) {
+                const fromCol = from.charCodeAt(0) - 97;
+                const fromRow = 8 - parseInt(from[1]);
+                const toCol = to.charCodeAt(0) - 97;
+                const toRow = 8 - parseInt(to[1]);
 
-          const piece = boardState[r][c];
-          if (piece) {
-            const img = document.createElement("img");
-            img.src = `./pieces/${pieceMap[piece]}.png`;
-            img.alt = piece;
-            img.className = "piece-img";
-            square.appendChild(img);
-          }
+                if (fromRow < 0 || fromRow > 7 || fromCol < 0 || fromCol > 7 ||
+                    toRow < 0 || toRow > 7 || toCol < 0 || toCol > 7) {
+                    return null;
+                }
 
-          boardElement.appendChild(square);
+                const piece = this.board[fromRow][fromCol];
+                if (!piece || piece[0] !== this.turn) return null;
+
+                if (this.isValidMove(fromRow, fromCol, toRow, toCol)) {
+                    const capturedPiece = this.board[toRow][toCol];
+                    this.board[toRow][toCol] = piece;
+                    this.board[fromRow][fromCol] = null;
+                    
+                    // Handle pawn promotion
+                    if (piece[1] === 'P' && (toRow === 0 || toRow === 7)) {
+                        this.board[toRow][toCol] = piece[0] + promotion.toUpperCase();
+                    }
+                    
+                    this.turn = this.turn === 'w' ? 'b' : 'w';
+                    return { from, to, piece, captured: capturedPiece };
+                }
+                return null;
+            }
+
+            isValidMove(fromRow, fromCol, toRow, toCol) {
+                const piece = this.board[fromRow][fromCol];
+                const targetPiece = this.board[toRow][toCol];
+                
+                if (targetPiece && targetPiece[0] === piece[0]) return false;
+                
+                const pieceType = piece[1];
+                const rowDiff = Math.abs(toRow - fromRow);
+                const colDiff = Math.abs(toCol - fromCol);
+                
+                switch (pieceType) {
+                    case 'P':
+                        const direction = piece[0] === 'w' ? -1 : 1;
+                        const startRow = piece[0] === 'w' ? 6 : 1;
+                        
+                        if (fromCol === toCol && !targetPiece) {
+                            if (toRow === fromRow + direction) return true;
+                            if (fromRow === startRow && toRow === fromRow + 2 * direction) return true;
+                        }
+                        if (colDiff === 1 && toRow === fromRow + direction && targetPiece) return true;
+                        return false;
+                        
+                    case 'R':
+                        if (fromRow === toRow || fromCol === toCol) {
+                            return this.isPathClear(fromRow, fromCol, toRow, toCol);
+                        }
+                        return false;
+                        
+                    case 'N':
+                        return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+                        
+                    case 'B':
+                        if (rowDiff === colDiff) {
+                            return this.isPathClear(fromRow, fromCol, toRow, toCol);
+                        }
+                        return false;
+                        
+                    case 'Q':
+                        if (fromRow === toRow || fromCol === toCol || rowDiff === colDiff) {
+                            return this.isPathClear(fromRow, fromCol, toRow, toCol);
+                        }
+                        return false;
+                        
+                    case 'K':
+                        return rowDiff <= 1 && colDiff <= 1;
+                        
+                    default:
+                        return false;
+                }
+            }
+
+            isPathClear(fromRow, fromCol, toRow, toCol) {
+                const rowStep = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
+                const colStep = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
+                
+                let row = fromRow + rowStep;
+                let col = fromCol + colStep;
+                
+                while (row !== toRow || col !== toCol) {
+                    if (this.board[row][col]) return false;
+                    row += rowStep;
+                    col += colStep;
+                }
+                
+                return true;
+            }
         }
-      }
-    }
 
-    function loadFEN() {
-      const fen = document.getElementById("fenInput").value.trim();
-      const [piecePlacement] = fen.split(" ");
-      const rows = piecePlacement.split("/");
-      const newState = [];
+        function HyperionBoard() {
+            const [game, setGame] = useState(new SimpleChess());
+            const [fenInput, setFenInput] = useState('');
+            const [selectedSquare, setSelectedSquare] = useState(null);
+            const [validMoves, setValidMoves] = useState([]);
 
-      for (let r = 0; r < 8; r++) {
-        const row = rows[r];
-        const parsedRow = [];
-        for (const char of row) {
-          if (!isNaN(char)) {
-            for (let i = 0; i < parseInt(char); i++) parsedRow.push("");
-          } else {
-            parsedRow.push(char);
-          }
+            const onSquareClick = useCallback((row, col) => {
+                const square = String.fromCharCode(97 + col) + (8 - row);
+                
+                if (selectedSquare) {
+                    const move = game.move({ from: selectedSquare, to: square });
+                    if (move) {
+                        setGame(new SimpleChess());
+                        const newGame = new SimpleChess();
+                        newGame.load(game.fen());
+                        setGame(newGame);
+                    }
+                    setSelectedSquare(null);
+                    setValidMoves([]);
+                } else {
+                    const piece = game.board[row][col];
+                    if (piece && piece[0] === game.turn) {
+                        setSelectedSquare(square);
+                        // Calculate valid moves (simplified)
+                        const moves = [];
+                        for (let r = 0; r < 8; r++) {
+                            for (let c = 0; c < 8; c++) {
+                                if (game.isValidMove(row, col, r, c)) {
+                                    moves.push([r, c]);
+                                }
+                            }
+                        }
+                        setValidMoves(moves);
+                    }
+                }
+            }, [game, selectedSquare]);
+
+            const loadFEN = () => {
+                const newGame = new SimpleChess();
+                if (newGame.load(fenInput)) {
+                    setGame(newGame);
+                } else {
+                    alert('Invalid FEN');
+                }
+            };
+
+            const resetGame = () => {
+                setGame(new SimpleChess());
+                setSelectedSquare(null);
+                setValidMoves([]);
+            };
+
+            return React.createElement('div', {
+                style: {
+                    backgroundColor: '#000',
+                    color: '#fff',
+                    minHeight: '100vh',
+                    padding: '32px'
+                }
+            }, [
+                React.createElement('h1', {
+                    key: 'title',
+                    style: {
+                        fontSize: '36px',
+                        fontWeight: 'bold',
+                        marginBottom: '24px',
+                        textAlign: 'center'
+                    }
+                }, '🏇 HYPERION IX Interactive Board'),
+                
+                React.createElement('div', {
+                    key: 'content',
+                    style: {
+                        display: 'flex',
+                        gap: '48px',
+                        justifyContent: 'center',
+                        flexWrap: 'wrap'
+                    }
+                }, [
+                    // Chess Board
+                    React.createElement('div', {
+                        key: 'board-container',
+                        style: {
+                            border: '4px solid #555',
+                            borderRadius: '12px',
+                            padding: '16px',
+                            backgroundColor: '#111'
+                        }
+                    }, 
+                        React.createElement('div', {
+                            style: {
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(8, 1fr)',
+                                gridTemplateRows: 'repeat(8, 1fr)',
+                                width: '500px',
+                                height: '500px',
+                                border: '2px solid #333'
+                            }
+                        }, 
+                        game.board.map((row, rowIndex) =>
+                            row.map((piece, colIndex) => {
+                                const isLight = (rowIndex + colIndex) % 2 === 0;
+                                const isSelected = selectedSquare === String.fromCharCode(97 + colIndex) + (8 - rowIndex);
+                                const isValidMove = validMoves.some(([r, c]) => r === rowIndex && c === colIndex);
+                                
+                                return React.createElement('div', {
+                                    key: `${rowIndex}-${colIndex}`,
+                                    onClick: () => onSquareClick(rowIndex, colIndex),
+                                    style: {
+                                        backgroundColor: isSelected ? '#555' : 
+                                                       isLight ? '#f0d9b5' : '#b58863',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        fontSize: '32px',
+                                        border: isValidMove ? '3px solid #0066cc' : 'none',
+                                        position: 'relative'
+                                    }
+                                }, [
+                                    piece && React.createElement('span', {
+                                        key: 'piece',
+                                        className: 'chess-piece',
+                                        style: {
+                                            color: piece[0] === 'w' ? '#fff' : '#000',
+                                            textShadow: piece[0] === 'w' ? '1px 1px 2px #000' : '1px 1px 2px #fff'
+                                        }
+                                    }, pieceSymbols[piece]),
+                                    isValidMove && !piece && React.createElement('div', {
+                                        key: 'dot',
+                                        style: {
+                                            width: '20px',
+                                            height: '20px',
+                                            backgroundColor: '#0066cc',
+                                            borderRadius: '50%',
+                                            opacity: 0.7
+                                        }
+                                    })
+                                ]);
+                            })
+                        ))
+                    ),
+                    
+                    // Control Panel
+                    React.createElement('div', {
+                        key: 'controls',
+                        style: {
+                            width: '384px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px'
+                        }
+                    }, [
+                        React.createElement('div', {
+                            key: 'fen-section',
+                            style: {
+                                backgroundColor: '#111',
+                                padding: '16px',
+                                borderRadius: '8px',
+                                border: '1px solid #333'
+                            }
+                        }, [
+                            React.createElement('label', {
+                                key: 'fen-label',
+                                style: {
+                                    display: 'block',
+                                    marginBottom: '8px',
+                                    fontSize: '18px',
+                                    fontWeight: '500'
+                                }
+                            }, 'Load FEN:'),
+                            React.createElement('input', {
+                                key: 'fen-input',
+                                type: 'text',
+                                value: fenInput,
+                                onChange: (e) => setFenInput(e.target.value),
+                                style: {
+                                    width: '100%',
+                                    padding: '8px',
+                                    backgroundColor: '#222',
+                                    border: '1px solid #555',
+                                    borderRadius: '4px',
+                                    color: '#fff',
+                                    fontSize: '14px'
+                                }
+                            }),
+                            React.createElement('button', {
+                                key: 'load-btn',
+                                onClick: loadFEN,
+                                style: {
+                                    marginTop: '16px',
+                                    padding: '8px 16px',
+                                    backgroundColor: '#16a34a',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                }
+                            }, 'Load Position'),
+                            React.createElement('button', {
+                                key: 'reset-btn',
+                                onClick: resetGame,
+                                style: {
+                                    marginTop: '8px',
+                                    marginLeft: '8px',
+                                    padding: '8px 16px',
+                                    backgroundColor: '#dc2626',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                }
+                            }, 'Reset Game')
+                        ]),
+                        
+                        React.createElement('div', {
+                            key: 'current-fen',
+                            style: {
+                                backgroundColor: '#111',
+                                padding: '16px',
+                                borderRadius: '8px',
+                                border: '1px solid #333'
+                            }
+                        }, [
+                            React.createElement('h2', {
+                                key: 'fen-title',
+                                style: {
+                                    fontSize: '20px',
+                                    fontWeight: '600',
+                                    marginBottom: '8px'
+                                }
+                            }, 'Current FEN:'),
+                            React.createElement('p', {
+                                key: 'fen-display',
+                                style: {
+                                    fontSize: '12px',
+                                    wordBreak: 'break-all',
+                                    backgroundColor: '#000',
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    fontFamily: 'monospace'
+                                }
+                            }, game.fen())
+                        ]),
+
+                        React.createElement('div', {
+                            key: 'game-info',
+                            style: {
+                                backgroundColor: '#111',
+                                padding: '16px',
+                                borderRadius: '8px',
+                                border: '1px solid #333'
+                            }
+                        }, [
+                            React.createElement('h3', {
+                                key: 'info-title',
+                                style: { marginBottom: '8px' }
+                            }, 'Game Info:'),
+                            React.createElement('p', {
+                                key: 'turn-info'
+                            }, `Turn: ${game.turn === 'w' ? 'White' : 'Black'}`),
+                            selectedSquare && React.createElement('p', {
+                                key: 'selected-info'
+                            }, `Selected: ${selectedSquare}`)
+                        ])
+                    ])
+                ])
+            ]);
         }
-        newState.push(parsedRow);
-      }
-      boardState = newState;
-      renderBoard();
-    }
 
-    renderBoard();
-  </script>
+        ReactDOM.render(React.createElement(HyperionBoard), document.getElementById('root'));
+    </script>
 </body>
 </html>
